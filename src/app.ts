@@ -8,7 +8,7 @@ import cookieParser from "cookie-parser";
 const app = express();
 
 const corsOptions: CorsOptions = {
-  origin: "http://localhost:3000",
+  origin: "https://ph-project-review-client.vercel.app",
   credentials: true,
 };
 
