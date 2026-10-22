@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
+import { z } from "zod";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -18,22 +19,33 @@ export async function createProject(req: AuthenticatedRequest, res: Response) {
     });
   }
   try {
-    const { name, repoUrl, liveUrl, description } = req.body;
 
-    if (
-      typeof name !== "string" ||
-      typeof repoUrl !== "string" ||
-      typeof description !== "string" ||
-      !name.trim() ||
-      !repoUrl.trim() ||
-      !description.trim() ||
-      (liveUrl !== undefined && liveUrl !== null && typeof liveUrl !== "string")
-    ) {
+    const projectSchema = z.object({
+      name: z.string().trim().min(1, "Project name is required."),
+      repoUrl: z.string().trim().url("Enter a valid repository URL."),
+      liveUrl: z
+        .union([
+          z.string().trim().url("Enter a valid live URL."),
+          z.literal(""),
+        ])
+        .nullish(),
+      description: z.string().trim().min(1, "Description is required."),
+    });
+
+    const validation = projectSchema.safeParse(req.body);
+
+    if (!validation.success) {
       return res.status(400).json({
         success: false,
-        message: "Project name, repository URL, and description are required.",
+        message: "Invalid project submission.",
+        errors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
     }
+
+    const { name, repoUrl, liveUrl, description } = validation.data;
 
     const project = await prisma.project.create({
       data: {
